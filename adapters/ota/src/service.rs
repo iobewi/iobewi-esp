@@ -10,6 +10,7 @@ use alloc::vec::Vec;
 use iobewi_config_space::ConfigSpace;
 use iobewi_esp_config_space::NvsConfigBackend;
 use iobewi_esp_flash::SharedFlash;
+use iobewi_ota::bootstrap::BootstrapStore as BootstrapStoreContract;
 use iobewi_ota::metadata::MetadataStore;
 use iobewi_ota::service::{BootActivation, TargetSelection};
 use iobewi_ota::service::upload::{UploadStats, UploadWriter};
@@ -20,6 +21,24 @@ use iobewi_ota::BackendOutcome;
 use crate::{AppPartition, AppSlot, FlashWriteError, shared_flash};
 
 pub type OtaConfigSpace = ConfigSpace<NvsConfigBackend>;
+pub type BootstrapConfigSpace = ConfigSpace<NvsConfigBackend>;
+
+pub struct BootstrapStore<'a>(pub &'a BootstrapConfigSpace);
+
+impl BootstrapStoreContract for BootstrapStore<'_> {
+    type Error = ();
+
+    async fn load_raw(&self) -> Result<Option<Vec<u8>>, Self::Error> {
+        self.0.load().await
+            .map(|snapshot| snapshot.map(|snapshot| snapshot.data))
+            .map_err(|_| ())
+    }
+
+    async fn commit_raw(&self, bytes: &[u8]) -> Result<(), Self::Error> {
+        self.0.commit(bytes).await.map(|_| ()).map_err(|_| ())
+    }
+}
+
 
 pub struct OtaStore<'a>(pub &'a OtaConfigSpace);
 
